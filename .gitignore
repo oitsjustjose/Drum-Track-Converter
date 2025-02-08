@@ -1,7 +1,5 @@
-/bin
-/include
-/lib
-/lib64
-/share
-/pyvenv.cfg
-/separated/**/*
+/Python
+/input
+/output
+/htdemucs_ft
+__pycache__
