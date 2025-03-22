@@ -1,6 +1,8 @@
+__pycache__
 /.venv
-/Python
+/*.build
+/*.dist
+/htdemucs_ft
 /input
 /output
-/htdemucs_ft
-__pycache__
+/Python
