@@ -12,7 +12,8 @@ from tinytag import TinyTag
 from wavinfo import WavInfoReader
 
 
-MODEL_NAME = "htdemucs_ft"
+MODEL_NAME = "htdemucs"  # "htdemucs_ft"
+SUPPORTED_EXTS = [".mp3", ".m4a", ".wav"]
 
 
 class MusicFile:
@@ -22,7 +23,7 @@ class MusicFile:
         Args:
             path (Path): The path of the music file
         """
-        self.__p = path
+        self.file_path = path
 
     def separate(self) -> Path:
         """_summary_
@@ -43,15 +44,15 @@ class MusicFile:
                 "{stem}.{ext}",  # Again, easier to automate "drums.mp3" than others..
                 "--name",  # Model Name -- including this prevents output spam and removes unpredictability
                 MODEL_NAME,  # Fine tuned model is slower but sounds noticeably, but slightly, better. Remove _ft to speed up
-                f"{str(self.__p.resolve())}",
+                f"{str(self.file_path.resolve())}",
             ]
         )
 
-        drums = Path(MODEL_NAME).joinpath("drums.mp3")
+        just_drums = Path(MODEL_NAME).joinpath("drums.mp3")
         no_drums = Path(MODEL_NAME).joinpath("no_drums.mp3")
 
-        if os.path.exists(drums):
-            os.unlink(drums)
+        if os.path.exists(just_drums):
+            os.unlink(just_drums)
 
         return no_drums.resolve()
 
@@ -64,20 +65,20 @@ class MusicFile:
         Returns:
             Tag: The ID3 V2.4 metadata tag from the music file contained
         """
-        if self.__p.suffix == ".mp3":
+        if self.file_path.suffix == ".mp3":
             return self.__get_mp3_tag()
-        if self.__p.suffix == ".m4a":
+        if self.file_path.suffix == ".m4a":
             return self.__get_m4a_tag()
-        if self.__p.suffix == ".wav":
+        if self.file_path.suffix == ".wav":
             return self.__get_wav_tag()
-        raise Exception(f"Failed to determine tag type for {self.__p}")
+        raise Exception(f"Failed to determine tag type for {self.file_path}")
 
     def __get_m4a_tag(self) -> Tag:
         """
         Creates a new eyed3 Tag object from an m4a tag which is not natively supported
         This implementation is based off of TinyTag's m4a support
         """
-        tag = TinyTag.get(str(self.__p))
+        tag = TinyTag.get(str(self.file_path))
 
         ret = Tag(version=ID3_V2_4)
 
@@ -100,7 +101,7 @@ class MusicFile:
 
     def __get_wav_tag(self) -> Tag:
         """Gets the tag for a wav file based off of WavInfo's impl"""
-        tag = WavInfoReader(str(self.__p))
+        tag = WavInfoReader(str(self.file_path))
 
         ret = Tag(version=ID3_V2_4)
         ret.album = tag.info.album
@@ -117,8 +118,10 @@ class MusicFile:
         Gets or creates a tag from the given file path. If the tag fails to be created,
             an empty tag is made and returned
         """
-        audio_file = eyed3.load(str(self.__p))
+        audio_file = eyed3.load(str(self.file_path))
         if not audio_file:
-            print(f"Failed to load tag from file {self.__p} -- returning empty tag")
+            print(
+                f"Failed to load tag from file {self.file_path} -- returning empty tag"
+            )
             return Tag(version=ID3_V2_4)
         return audio_file.tag
