@@ -30,6 +30,10 @@ Using [PyQT6](https://pypi.org/project/PyQt6/) and [Nuitka](https://nuitka.net/)
 
 macOS support may come soon - I don't daily drive macOS so it may pose additional problems going forward. For now I recommend the CLI approach listed below.
 
+#### ‼️ Please Note ‼️
+
+Windows Defender or Smartscreen may flag the executable as malware. This is because the executable is not signed, as getting it signed by Microsoft is a considerable expense and time-sink. I have no plans of getting this code signed at any point, but the entire project is FOSS so feel free to explore to your heart's delight.
+
 ### ⌨️ CLI for all operating systems
 
 For those using the CLI, the installation and usage is:
