@@ -23,6 +23,11 @@ class FolderProcessor:
         self.input_dir: str = input_dir
         self.output_dir: str = output_dir
         self.msg_interface: MessageInterface = msg_interface
+        self.should_stop = False
+
+    def quit(self) -> None:
+        """Tells the ongoing process to quit on next iteration"""
+        self.should_stop = True
 
     def process_directory(self) -> None:
         """
@@ -75,6 +80,11 @@ class FolderProcessor:
                 self.msg_interface.info(
                     f"Done processing {original_path.name} and relocated it to {file_dest.relative_to(cur_dir)}!"
                 )
+
+                if self.should_stop:
+                    break
+            if self.should_stop:
+                break
 
         # Remove the model output since we don't need it anymore
         if os.path.exists(MODEL_NAME):

@@ -89,8 +89,3 @@ class CliOutput(MessageInterface):
 
     def error(self, input):
         self.logger.error(f"{input}")
-
-
-class GuiOutput(MessageInterface):
-    # TODO: this is a stub
-    pass
