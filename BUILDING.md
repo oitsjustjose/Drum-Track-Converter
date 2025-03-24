@@ -15,8 +15,8 @@ Again, if you install `nuitka` globally using the `-u` switch, then replace `pyt
 ```powershell
 python -m nuitka `
     --onefile `
-    --windows-console-mode=disable `
-    --standalone `
     --enable-plugin=pyqt6 `
+    --output-filename=Drum\ Track\ Converter.exe `
+    --windows-icon-from-ico=icon.png `
     .\src\gui.py
 ```
