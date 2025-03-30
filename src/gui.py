@@ -1,3 +1,7 @@
+"""
+@author: Jose Stovall | github.com/oitsjustjose | bsky||@oitsjustjose.com
+"""
+
 import platform
 import subprocess
 import sys

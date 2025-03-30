@@ -1,3 +1,7 @@
+"""
+@author: Jose Stovall | github.com/oitsjustjose | bsky||@oitsjustjose.com
+"""
+
 import logging
 import os
 import sys
@@ -25,32 +29,6 @@ class NoPrintStatements:
 
         sys.stdout.close()
         sys.stdout = self._original_stdout
-
-
-class MessageInterface:
-    def info(input: any):
-        """Displays an informational message to the preferred output method of choice
-
-        Args:
-            input (any): The input to display to the user (will be wrapped into a string)
-        """
-        raise "Cannot call base class!"
-
-    def warning(input: any):
-        """Displays a warning message to the preferred output method of choice
-
-        Args:
-            input (any): The input to display to the user (will be wrapped into a string)
-        """
-        raise "Cannot call base class!"
-
-    def error(input: any):
-        """Displays an error message to the preferred output method of choice
-
-        Args:
-            input (any): The input to display to the user (will be wrapped into a string)
-        """
-        raise "Cannot call base class!"
 
 
 class CustomFormatter(logging.Formatter):
@@ -81,7 +59,7 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-class CliOutput(MessageInterface):
+class CliOutput:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
@@ -91,10 +69,25 @@ class CliOutput(MessageInterface):
         self.logger.addHandler(ch)
 
     def info(self, input):
+        """Displays an informational message to the preferred output method of choice
+
+        Args:
+            input (any): The input to display to the user (will be wrapped into a string)
+        """
         self.logger.info(f"{input}")
 
     def warning(self, input):
+        """Displays a warning message to the preferred output method of choice
+
+        Args:
+            input (any): The input to display to the user (will be wrapped into a string)
+        """
         self.logger.warning(f"{input}")
 
     def error(self, input):
+        """Displays an error message to the preferred output method of choice
+
+        Args:
+            input (any): The input to display to the user (will be wrapped into a string)
+        """
         self.logger.error(f"{input}")
