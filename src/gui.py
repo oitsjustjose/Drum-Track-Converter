@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QPushButton,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -36,7 +35,6 @@ class MainWindow(QMainWindow):
 
         # Widgets that we'll want to set & mutate throughout the runtime
         self.start_button: QPushButton = None
-        self.logging_region: QTextEdit = None
         self.interactive_elements: List[QWidget] = list()
 
         self.setWindowTitle("Drum Track Converter by oitsjustjose")
@@ -80,12 +78,18 @@ class MainWindow(QMainWindow):
         if not (self.input_dir and self.output_dir):
             return
 
-        self.logging_region.setVisible(True)
+        # Since wait() is blocking, hide the main window so that the user doesn't get confused by it looking forzen
+        self.setHidden(True)
         [x.setEnabled(False) for x in self.interactive_elements]
 
         prefix = "start /wait" if platform.system() == "Windows" else ""
         command = f"{prefix} {sys.executable} -m src.cli {self.input_dir} {self.output_dir} -m {self.model_name}"
         self.__child_proc = subprocess.Popen(command.split(" "), shell=True)
+        self.__child_proc.wait()
+
+        # Re-enable elements now that everything is done
+        self.setHidden(False)
+        [x.setEnabled(True) for x in self.interactive_elements]
 
     def stop(self):
         """Stops the working thread (if it's been started) at its soonest convenience..."""
@@ -111,8 +115,7 @@ class MainWindow(QMainWindow):
 
     def __setup_children(self):
         """Sets up the children of the main window element using [nested] HBox and VBox layouts"""
-
-        # Start Button
+        # Start Button gets manually defined since its contents are changed
         self.start_button = QPushButton("Start")
         self.start_button.setEnabled(False)
         self.start_button.adjustSize()
@@ -126,15 +129,7 @@ class MainWindow(QMainWindow):
             self.start_button,
         ]
 
-        # Logging region appears automatically
-        self.logging_region = QTextEdit()
-        self.logging_region.setReadOnly(True)
-        self.logging_region.setVisible(False)
-        self.logging_region.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
-
-        # Add all children to the parent layout
         [self.layout.addWidget(x) for x in self.interactive_elements]
-        self.layout.addWidget(self.logging_region)
 
     def __make_io_buttons(self) -> QWidget:
         """Makes the Input and Output Folder Buttons
