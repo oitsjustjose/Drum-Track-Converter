@@ -1,10 +1,9 @@
 import platform
+import subprocess
 import sys
-from multiprocessing import Process
 from pathlib import Path
 from typing import Callable, List
 
-from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -19,27 +18,21 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.messaging import MessageInterface
 from src.music_file import MODEL_CHOICES
-from src.processor import FolderProcessor
 
 APP_ID = "com.oitsjustjose.drum-track-converter"
-
-
-class DataBackend:
-    def __init__(self):
-        # Variables for the actual processing flow
-        self.input_dir: str = ""
-        self.output_dir: str = ""
-        self.model_name: str = list(MODEL_CHOICES.values())[0]
-
-        self.worker: Worker = None
-        self._child_proc: Process = None
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+
+        # Actual used data
+        self.input_dir: str = ""
+        self.output_dir: str = ""
+        self.model_name: str = list(MODEL_CHOICES.values())[0]
+        # The subprocess used for the internal call to cli.py
+        self.__child_proc: subprocess.Popen = None
 
         # Widgets that we'll want to set & mutate throughout the runtime
         self.start_button: QPushButton = None
@@ -51,8 +44,6 @@ class MainWindow(QMainWindow):
         self.__center()
         # Set fixed size only once we've established the contents of the window
         self.setMaximumSize(self.size())
-        # Handle data separately from the GUI
-        self.data_backend = DataBackend()
 
     def on_input_clicked(self, button_ref: QPushButton):
         """Sets the output directory to the selected value from a QFileDialog
@@ -92,47 +83,16 @@ class MainWindow(QMainWindow):
         self.logging_region.setVisible(True)
         [x.setEnabled(False) for x in self.interactive_elements]
 
-        self.worker = Worker(
-            FolderProcessor(
-                self.input_dir,
-                self.output_dir,
-                self.model_name,
-                GuiOutput(self),
-            )
-        )
-
-        self.worker.finished.connect(self.on_done)
-        self._child_proc = Process(target=self.worker.run)
-        self._child_proc.start()
-
-    def on_done(self, message: str):
-        # Reset State
-        self._child_proc.join(0)
-        self.worker.finished.disconnect()
-        self.worker = None
-
-        self.logging_region.append(message)
-        self.start_button.setText("Start")
-        [x.setEnabled(False) for x in self.interactive_elements]
+        prefix = "start /wait" if platform.system() == "Windows" else ""
+        command = f"{prefix} {sys.executable} -m src.cli {self.input_dir} {self.output_dir} -m {self.model_name}"
+        self.__child_proc = subprocess.Popen(command.split(" "), shell=True)
 
     def stop(self):
         """Stops the working thread (if it's been started) at its soonest convenience..."""
-        if self._child_proc:
-            self._child_proc.terminate()
-            self._child_proc.join(0)
+        if self.__child_proc:
+            self.__child_proc.kill()
 
     """~~Hidden / private methods~~"""
-
-    def __get_state__(self) -> dict:
-        state = self.__dict__.copy()
-        # TODO: delete any unpicklable entries
-        # del state['f'] --
-        return state
-
-    def __setstate__(self, state: dict):
-        self.__dict__.update(state)
-        # TODO: restore any unpicklable entries
-        # self.f = # manual parsing
 
     def __center(self) -> None:
         """Centers the window to the middle of the Screen"""
@@ -276,44 +236,6 @@ class MainWindow(QMainWindow):
         button_ref.setText(f"Set: '{display_path.stem}'")
         enabled = bool(self.input_dir and self.output_dir)
         self.start_button.setEnabled(enabled)
-
-
-class Worker(QObject):
-    finished = Signal(str, name="on_worker_finished")
-
-    def __init__(self, processor: FolderProcessor):
-        super().__init__()
-        self.processor = processor
-
-    def __reduce__(self):
-        return (Worker, (self.processor,))
-
-    def run(self):
-        try:
-            self.processor.process_directory()
-            self.finished.emit("✅ Done!")
-        except Exception as e:
-            self.finished.emit(f"Failed: {e}")
-
-
-class GuiOutput(MessageInterface):
-    def __init__(self, window: MainWindow):
-        self.w: MainWindow = window
-
-    def info(self, input):
-        if not self.w.logging_region:
-            return
-        self.w.logging_region.append(f"ℹ️ {input}")
-
-    def warning(self, input):
-        if not self.w.logging_region:
-            return
-        self.w.logging_region.append(f"⚠️ {input}")
-
-    def error(self, input):
-        if not self.w.logging_region:
-            return
-        self.w.logging_region.append(f"‼️ {input}")
 
 
 def main() -> None:
