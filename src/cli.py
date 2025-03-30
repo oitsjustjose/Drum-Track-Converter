@@ -1,29 +1,70 @@
 import sys
+from argparse import ArgumentParser, RawTextHelpFormatter
+
+from colorama import Fore
 
 from src.messaging import CliOutput
-from src.processor import FolderProcessor
 from src.music_file import MODEL_CHOICES
+from src.processor import FolderProcessor
+
+
+def __get_parser() -> ArgumentParser:
+    """Creates an arg parser for the program. Abstracted away because it's ugly like always
+
+    Returns:
+        ArgumentParser: The created and configured arg parser.
+    """
+
+    model_choices = "\n  • ".join(
+        # Padding in the array so the first entry starts on a newline with bullet
+        [""]
+        + [
+            f"{Fore.GREEN}{MODEL_CHOICES[desc]}{Fore.RESET} - {desc}"
+            for desc in MODEL_CHOICES
+        ]
+    )
+
+    parser = ArgumentParser(
+        prog="Drum Track Converter",
+        description="Removes the drum tracks from [almost] any song using Demucs",
+        formatter_class=RawTextHelpFormatter,
+    )
+
+    parser.add_argument(
+        "input_dir", help="The directory to scan for files. Scans recursively."
+    )
+
+    parser.add_argument(
+        "output_dir",
+        help="The directory to output drumless tracks to. Folder structure is preserved from the input.",
+    )
+
+    parser.add_argument(
+        "-m",
+        "--model",
+        help=f"What model to use. Options include: {model_choices}",
+        default=list(MODEL_CHOICES.values())[0],
+    )
+
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        help="Show verbose print statements",
+        action="store_true",
+        default=False,
+    )
+
+    return parser
+
 
 if __name__ == "__main__":
-    output = CliOutput()
+    logger = CliOutput()
+    args = __get_parser().parse_args()
 
-    if len(sys.argv) >= 3:
-        ## TODO: CLI argparse -- this is getting messy...
-        model_name = (
-            sys.argv[3] if len(sys.argv) >= 4 else list(MODEL_CHOICES.values())[0]
-        )
-
-        processor = FolderProcessor(
-            sys.argv[1],
-            sys.argv[2],
-            output,
-        )
+    try:
+        processor = FolderProcessor.from_args(args, logger)
         processor.process_directory()
-    else:
-        warning_str = [
-            "The CLI utility requires exactly two parameters:",
-            " • input [str] -- The directory to scan through",
-            " • output [str] -- The directory to output through, keeping the input directory's file structure.",
-            "  (This directory will be made if necessary)",
-        ]
-        output.error("\n".join(warning_str))
+    except KeyboardInterrupt:
+        sys.exit(0)
+    except Exception as e:
+        logger.error(e)

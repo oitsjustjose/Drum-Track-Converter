@@ -2,12 +2,13 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from argparse import Namespace as argset
 
 import eyed3
 from eyed3.id3 import ID3_V2_4, Tag
 
 from src.messaging import MessageInterface, NoPrintStatements
-from src.music_file import SUPPORTED_EXTS, MusicFile
+from src.music_file import SUPPORTED_EXTS, MODEL_CHOICES, MusicFile
 
 
 class FolderProcessor:
@@ -15,21 +16,34 @@ class FolderProcessor:
         self,
         input_dir: str,
         output_dir: str,
-        msg_interface: MessageInterface,
         model_name: str,
+        msg_interface: MessageInterface,
+        verbose: bool = False,
     ):
-        """_summary_
-
+        """
         Args:
             input_dir (str): The source directory to traverse and convert
             output_dir (str): The destination directory which will mirror the source, but with tracks that have no drums
+            model_name (str): The name of the Demucs model to use for splitting tracks
             msg_interface (MessageInterface): The handler for displaying output to the user
         """
         self.input_dir: str = input_dir
         self.output_dir: str = output_dir
         self.msg_interface: MessageInterface = msg_interface
         self.model_name = model_name
-        self.should_stop = False
+        self.verbose: bool = verbose
+
+    @classmethod
+    def from_args(self, args: argset, msg_interface: MessageInterface):
+        """Creates a FolderProcessor instance using an argparse argument set
+
+        Args:
+            args (argset): Arguments from the CLI
+            msg_interface (MessageInterface): The handler for displaying output to the user
+        """
+        return FolderProcessor(
+            args.input_dir, args.output_dir, args.model, msg_interface, args.verbose
+        )
 
     def _is_ffmpeg_present(self) -> bool:
         """Determines if ffmpeg is installed and accessible
@@ -45,10 +59,6 @@ class FolderProcessor:
             return exit_code == 1
         except FileNotFoundError:
             return False
-
-    def quit(self) -> None:
-        """Tells the ongoing process to quit on next iteration"""
-        self.should_stop = True
 
     def process_directory(self) -> None:
         """
@@ -82,11 +92,10 @@ class FolderProcessor:
                 original_file = MusicFile(original_path, self.model_name)
 
                 self.msg_interface.info(
-                    f"Splitting drum tracks from {original_path.name}:"
+                    f"Splitting drum tracks from {original_path.name} using {list(MODEL_CHOICES.keys())[list(MODEL_CHOICES.values()).index(self.model_name)]}:"
                 )
 
-                # Get the output file of drumless music
-                with NoPrintStatements():  # Prevent print statements from demucs
+                with NoPrintStatements(self.verbose):
                     no_drums_path = original_file.separate()
 
                 # If metadata cloning fails, skip the file.
@@ -106,11 +115,6 @@ class FolderProcessor:
                 self.msg_interface.info(
                     f"Done processing {original_path.name} and relocated it to {file_dest.relative_to(cur_dir)}!"
                 )
-
-                if self.should_stop:
-                    break
-            if self.should_stop:
-                break
 
         # Remove the model output since we don't need it anymore
         if os.path.exists(self.model_name):

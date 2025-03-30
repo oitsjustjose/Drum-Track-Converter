@@ -9,11 +9,20 @@ class NoPrintStatements:
         Source: https://stackoverflow.com/a/45669280
     """
 
+    def __init__(self, verbose: bool):
+        self.verbose = verbose
+
     def __enter__(self):
+        if self.verbose:
+            return
+
         self._original_stdout = sys.stdout
         sys.stdout = open(os.devnull, "w")
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.verbose:
+            return
+
         sys.stdout.close()
         sys.stdout = self._original_stdout
 
