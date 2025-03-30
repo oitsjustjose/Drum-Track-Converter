@@ -1,8 +1,10 @@
+import platform
 import sys
 from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QThread
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -20,10 +22,14 @@ from src.messaging import MessageInterface
 from src.music_file import MODEL_CHOICES
 from src.processor import FolderProcessor
 
+APP_ID = "com.oitsjustjose.drum-track-converter"
+
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, icon: QIcon):
         super().__init__()
+
+        self.setWindowIcon(icon)
 
         # Widgets that we'll want to set throughout the runtime
         self.start_button: QPushButton = None
@@ -287,7 +293,13 @@ def main() -> None:
       in the meantime the off-thread processing (if any) is stopped.
     """
     app = QApplication(sys.argv)
-    window = MainWindow()
+
+    icon = QIcon()
+    icon.addFile("assets/icon.png")
+    icon.addFile("assets/icon.ico")
+
+    app.setWindowIcon(icon)
+    window = MainWindow(icon)
     window.show()
     exit_code = app.exec()
     window.stop_thread()
@@ -295,4 +307,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # Set the AppUserModelId so that the proper taskbar icon renders
+    if platform.system() == "Windows":
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
+
     main()
