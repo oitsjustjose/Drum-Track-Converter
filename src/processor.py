@@ -1,17 +1,22 @@
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 import eyed3
 from eyed3.id3 import ID3_V2_4, Tag
 
-from src.music_file import MODEL_NAME, SUPPORTED_EXTS, MusicFile
 from src.messaging import MessageInterface, NoPrintStatements
+from src.music_file import SUPPORTED_EXTS, MusicFile
 
 
 class FolderProcessor:
     def __init__(
-        self, input_dir: str, output_dir: str, msg_interface: MessageInterface
+        self,
+        input_dir: str,
+        output_dir: str,
+        msg_interface: MessageInterface,
+        model_name: str,
     ):
         """_summary_
 
@@ -23,7 +28,23 @@ class FolderProcessor:
         self.input_dir: str = input_dir
         self.output_dir: str = output_dir
         self.msg_interface: MessageInterface = msg_interface
+        self.model_name = model_name
         self.should_stop = False
+
+    def _is_ffmpeg_present(self) -> bool:
+        """Determines if ffmpeg is installed and accessible
+
+        Returns:
+            bool: True if ffmpeg is installed and accessible, false otherwise.
+                When returning false, no processing should be permitted.
+        """
+        try:
+            exit_code = subprocess.call(
+                ["ffmpeg"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            return exit_code == 1
+        except FileNotFoundError:
+            return False
 
     def quit(self) -> None:
         """Tells the ongoing process to quit on next iteration"""
@@ -36,6 +57,11 @@ class FolderProcessor:
         
         Also ensures that metadata is copied from the old file to the new one to provide the best user experience in the end
         """
+
+        if not self._is_ffmpeg_present():
+            raise Exception(
+                "FFMpeg is not installed! Please install it from here: https://www.ffmpeg.org/download.html"
+            )
 
         src: Path = Path(self.input_dir)
         dest: Path = Path(self.output_dir)
@@ -53,7 +79,7 @@ class FolderProcessor:
                     )
                     continue
                 # Create a "MusicFile" from the full path of the original file
-                original_file = MusicFile(original_path)
+                original_file = MusicFile(original_path, self.model_name)
 
                 self.msg_interface.info(
                     f"Splitting drum tracks from {original_path.name}:"
@@ -87,8 +113,8 @@ class FolderProcessor:
                 break
 
         # Remove the model output since we don't need it anymore
-        if os.path.exists(MODEL_NAME):
-            shutil.rmtree(MODEL_NAME)
+        if os.path.exists(self.model_name):
+            shutil.rmtree(self.model_name)
 
     def __copy_metadata(self, original_file: MusicFile, no_drums_path: Path) -> bool:
         """

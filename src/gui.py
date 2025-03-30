@@ -1,9 +1,11 @@
 import sys
+from pathlib import Path
 from typing import Callable
 
-from PyQt6.QtCore import QThread
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QThread
+from PySide6.QtWidgets import (
     QApplication,
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -15,6 +17,7 @@ from PyQt6.QtWidgets import (
 )
 
 from src.messaging import MessageInterface
+from src.music_file import MODEL_CHOICES
 from src.processor import FolderProcessor
 
 
@@ -29,11 +32,14 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Drum Track Converter by oitsjustjose")
         self.__setup_layout()
         self.__center()
+        # Set fixed size only once we've established the contents of the window
+        self.setMaximumSize(self.size())
 
         # Variables for the actual processing flow
         self.input_dir: str = ""
         self.output_dir: str = ""
-        self._thread: QThread = None
+        self.model_name: str = list(MODEL_CHOICES.values())[0]
+        self._thread: OffThreadProcessor = None
 
     def __center(self) -> None:
         """Centers the window to the middle of the Screen"""
@@ -53,6 +59,30 @@ class MainWindow(QMainWindow):
 
     def __setup_children(self):
         """Sets up the children of the main window element using [nested] HBox and VBox layouts"""
+        # Start Button
+        self.start_button = QPushButton("Start")
+        self.start_button.setEnabled(False)
+        self.start_button.adjustSize()
+        self.start_button.clicked.connect(self.on_start_clicked)
+
+        # Logging region appears automatically
+        self.logging_region = QTextEdit()
+        self.logging_region.setReadOnly(True)
+        self.logging_region.setVisible(False)
+        self.logging_region.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+
+        # Add all children to the parent layout
+        self.layout.addWidget(self.__make_io_buttons())
+        self.layout.addWidget(self.__make_model_combobox())
+        self.layout.addWidget(self.start_button)
+        self.layout.addWidget(self.logging_region)
+
+    def __make_io_buttons(self) -> QWidget:
+        """Makes the Input and Output Folder Buttons
+
+        Returns:
+            QWidget: The VBox widget created
+        """
 
         def create_io_button_group(
             self: MainWindow, label_text: str, on_click: Callable
@@ -74,7 +104,7 @@ class MainWindow(QMainWindow):
 
             label = self.__create_label(label_text)
             button = QPushButton("Choose Folder...")
-            button.clicked.connect(on_click)
+            button.clicked.connect(lambda: on_click(button))
 
             layout.addWidget(label)
             layout.addWidget(button)
@@ -83,31 +113,40 @@ class MainWindow(QMainWindow):
             return vbox
 
         # Input and Output directory items
-        io_btns = QWidget()
-        io_btns_layout = QHBoxLayout()
-        io_btns_layout.addWidget(
+        widget = QWidget()
+        layout = QHBoxLayout()
+        layout.addWidget(
             create_io_button_group(self, "Select Input Folder", self.on_input_clicked)
         )
-        io_btns_layout.addWidget(
+        layout.addWidget(
             create_io_button_group(self, "Select Output Folder", self.on_output_clicked)
         )
-        io_btns.setLayout(io_btns_layout)
+        widget.setLayout(layout)
+        return widget
 
-        # Start Button
-        self.start_button = QPushButton("Start")
-        self.start_button.setEnabled(False)
-        self.start_button.adjustSize()
-        self.start_button.clicked.connect(self.on_start_clicked)
+    def __make_model_combobox(self) -> QWidget:
+        """Makes a Combobox to choose which demucs model to use
 
-        # Logging region appears automatically
-        self.logging_region = QTextEdit()
-        self.logging_region.setReadOnly(True)
-        self.logging_region.setVisible(False)
-        self.logging_region.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        Returns:
+            QWidget: The VBox widget created
+        """
+        widget = QWidget()
+        layout = QHBoxLayout()
 
-        self.layout.addWidget(io_btns)
-        self.layout.addWidget(self.start_button)
-        self.layout.addWidget(self.logging_region)
+        label = self.__create_label(
+            'Demucs Model <a style="text-decoration: none !important;" href="https://github.com/facebookresearch/demucs?tab=readme-ov-file#separating-tracks">ℹ️</a>'
+        )
+        label.setOpenExternalLinks(True)
+
+        combo_box = QComboBox()
+        combo_box.currentTextChanged.connect(self.on_model_changed)
+        for model_name in MODEL_CHOICES:
+            combo_box.addItem(model_name)
+
+        layout.addWidget(label)
+        layout.addWidget(combo_box)
+        widget.setLayout(layout)
+        return widget
 
     def __create_label(self, text: str) -> QLabel:
         """Creates a label in a single call that is horizontally centered and automatically sized, with the provided text and pos.
@@ -124,17 +163,50 @@ class MainWindow(QMainWindow):
         label.adjustSize()
         return label
 
-    def on_input_clicked(self):
-        """Sets the input directory from a FileDialog, enables the start button if conditions are met"""
-        self.input_dir = QFileDialog.getExistingDirectory(None, "Select Input Folder")
+    def __common_io_clicked(self, button_ref: QPushButton, path: str) -> None:
+        """Performs a common set of actions for both on_input_clicked and on_output_clicked
+            Mutates the button_ref's text to reflect the selected folder
+            If Input and Output are set, enables the Start button
+
+        Args:
+            button_ref (QPushButton): A reference to the button pressed
+            path (str): The path chosen by the click event
+        """
+        display_path: Path = Path(path).resolve()
+
+        button_ref.setText(f"Set: '{display_path.stem}'")
         enabled = bool(self.input_dir and self.output_dir)
         self.start_button.setEnabled(enabled)
 
-    def on_output_clicked(self):
-        """Sets the output directory from a FileDialog, enables the start button if conditions are met"""
-        self.output_dir = QFileDialog.getExistingDirectory(None, "Select Input Folder")
-        enabled = bool(self.input_dir and self.output_dir)
-        self.start_button.setEnabled(enabled)
+    def on_input_clicked(self, button_ref: QPushButton):
+        """Sets the output directory to the selected value from a QFileDialog
+            Mutates the button_ref's text to reflect the selected folder
+            If Input and Output are set, enables the Start button
+
+        Args:
+            button_ref (QPushButton): A reference to the button pressed
+        """
+        self.input_dir = QFileDialog.getExistingDirectory(None, "Select Input Folder")
+        self.__common_io_clicked(button_ref, self.input_dir)
+
+    def on_output_clicked(self, button_ref: QPushButton):
+        """Sets the output directory to the selected value from a QFileDialog
+            Mutates the button_ref's text to reflect the selected folder
+            If Input and Output are set, enables the Start button
+
+        Args:
+            button_ref (QPushButton): A reference to the button pressed
+        """
+        self.output_dir = QFileDialog.getExistingDirectory(None, "Select Output Folder")
+        self.__common_io_clicked(button_ref, self.output_dir)
+
+    def on_model_changed(self, model_display_name: str) -> None:
+        """Sets the model_name to the new model_name based on the display name
+
+        Args:
+            model_display_name (str): The display name of the model
+        """
+        self.model_name = MODEL_CHOICES[model_display_name]
 
     def on_start_clicked(self):
         """Passes through basic assertions, spins up thread to process files from the input and output params"""
@@ -157,39 +229,35 @@ class MainWindow(QMainWindow):
         if not self._thread:
             return
 
-        if self._thread.isRunning():
-            self._thread.requestInterruption()
-            self._thread.quit()
-            self._thread.wait()
+        self._thread.stop()
         self._thread.deleteLater()
+        self._thread = None
 
 
 class OffThreadProcessor(QThread):
     def __init__(self, parent: MainWindow):
         super().__init__(parent)
-        self.running = False
         self.main_window: MainWindow = parent
+
+        self.setTerminationEnabled(True)
 
         self.gui_output = GuiOutput(self.main_window)
         self.processor = FolderProcessor(
-            parent.input_dir, parent.output_dir, self.gui_output
+            parent.input_dir, parent.output_dir, self.gui_output, parent.model_name
         )
 
     def run(self) -> None:
-        self.running = True
-        self.processor.process_directory()
-        # All of this occurs here instead of on_start_clicked to keep the main GUI from being blocked on the join
-        self.main_window.logging_region.append("✅ Done!")
-        self.main_window.start_button.setText("Start")
-        self.main_window.start_button.setEnabled(True)
-        self.running = False
+        try:
+            self.processor.process_directory()
+            # All of this occurs here instead of on_start_clicked to keep the main GUI from being blocked on the join
+            self.main_window.logging_region.append("✅ Done!")
+            self.main_window.start_button.setText("Start")
+            self.main_window.start_button.setEnabled(True)
+        except Exception as e:
+            self.processor.msg_interface.error(f"Failed: {e}")
 
-    def isRunning(self):
-        return self.running
-
-    def requestInterruption(self):
-        self.processor.quit()
-        return super().requestInterruption()
+    def stop(self) -> None:
+        self.terminate()
 
 
 class GuiOutput(MessageInterface):

@@ -11,19 +11,27 @@ from eyed3.id3 import ID3_V2_4, Tag
 from tinytag import TinyTag
 from wavinfo import WavInfoReader
 
-
-MODEL_NAME = "htdemucs"  # "htdemucs_ft"
 SUPPORTED_EXTS = [".mp3", ".m4a", ".wav"]
+MODEL_CHOICES = {
+    "Hybrid Transformer Demucs (Fine-Tuned)": "htdemucs_ft",
+    "Hybrid Transformer Demucs": "htdemucs",
+    "Hybrid Transformer Demucs v3": "hdemucs_mmi",
+    "Model Trained with MusDB HQ": "mdx",
+    "Model Trained with MusDB HQ & Extra Training Data": "mdx_extra",
+    "Model Trained with MusDB HQ (Quantized)": "mdx_q",
+    "Model Trained with MusDB HQ (Extra Quantized)": "mdx_extra_q",
+}
 
 
 class MusicFile:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, model_name: str):
         """A music file wrapper for most containers
 
         Args:
             path (Path): The path of the music file
         """
         self.file_path = path
+        self.model_name = model_name
 
     def separate(self) -> Path:
         """_summary_
@@ -43,13 +51,13 @@ class MusicFile:
                 "--filename",  # Set the file format for easier automation
                 "{stem}.{ext}",  # Again, easier to automate "drums.mp3" than others..
                 "--name",  # Model Name -- including this prevents output spam and removes unpredictability
-                MODEL_NAME,  # Fine tuned model is slower but sounds noticeably, but slightly, better. Remove _ft to speed up
+                self.model_name,
                 f"{str(self.file_path.resolve())}",
             ]
         )
 
-        just_drums = Path(MODEL_NAME).joinpath("drums.mp3")
-        no_drums = Path(MODEL_NAME).joinpath("no_drums.mp3")
+        just_drums = Path(self.model_name).joinpath("drums.mp3")
+        no_drums = Path(self.model_name).joinpath("no_drums.mp3")
 
         if os.path.exists(just_drums):
             os.unlink(just_drums)
