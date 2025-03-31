@@ -2,11 +2,12 @@
 @author: Jose Stovall | github.com/oitsjustjose | bsky||@oitsjustjose.com
 """
 
+import os
 import platform
 import subprocess
 import sys
 from pathlib import Path
-from typing import Callable, List
+from typing import Callable, List, Union
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
@@ -21,7 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.music_file import MODEL_CHOICES
+from src.common import MODEL_CHOICES
 
 APP_ID = "com.oitsjustjose.drum-track-converter"
 
@@ -86,9 +87,13 @@ class MainWindow(QMainWindow):
         self.setHidden(True)
         [x.setEnabled(False) for x in self.interactive_elements]
 
+        cli = get_path("dtc_cli.exe") if platform.system() == "Windows" else ""
         prefix = "start /wait" if platform.system() == "Windows" else ""
-        command = f"{prefix} {sys.executable} -m src.cli {self.input_dir} {self.output_dir} -m {self.model_name}"
-        self.__child_proc = subprocess.Popen(command.split(" "), shell=True)
+        command = f"{prefix} {cli} {self.input_dir} {self.output_dir} -m {self.model_name}"
+
+        print(f"{command=}")
+
+        self.__child_proc = subprocess.Popen(command.split(" "), shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
         self.__child_proc.wait()
 
         # Re-enable elements now that everything is done
@@ -142,9 +147,7 @@ class MainWindow(QMainWindow):
             QWidget: The VBox widget created
         """
 
-        def create_io_button_group(
-            self: MainWindow, label_text: str, on_click: Callable
-        ) -> QWidget:
+        def create_io_button_group(self: MainWindow, label_text: str, on_click: Callable) -> QWidget:
             """Re-usable template to create an input or output button group
             This group contains a label and a clickable button, which calls the
             on_click callable passed in when clicked.
@@ -173,12 +176,8 @@ class MainWindow(QMainWindow):
         # Input and Output directory items
         widget = QWidget()
         layout = QHBoxLayout()
-        layout.addWidget(
-            create_io_button_group(self, "Select Input Folder", self.on_input_clicked)
-        )
-        layout.addWidget(
-            create_io_button_group(self, "Select Output Folder", self.on_output_clicked)
-        )
+        layout.addWidget(create_io_button_group(self, "Select Input Folder", self.on_input_clicked))
+        layout.addWidget(create_io_button_group(self, "Select Output Folder", self.on_output_clicked))
         widget.setLayout(layout)
         return widget
 
@@ -191,9 +190,7 @@ class MainWindow(QMainWindow):
         widget = QWidget()
         layout = QHBoxLayout()
 
-        label = self.__create_label(
-            'Demucs Model <a style="text-decoration: none !important;" href="https://github.com/facebookresearch/demucs?tab=readme-ov-file#separating-tracks">ℹ️</a>'
-        )
+        label = self.__create_label('Demucs Model <a style="text-decoration: none !important;" href="https://github.com/facebookresearch/demucs?tab=readme-ov-file#separating-tracks">ℹ️</a>')
         label.setOpenExternalLinks(True)
 
         combo_box = QComboBox()
@@ -246,8 +243,8 @@ def main() -> None:
     app = QApplication(sys.argv)
 
     icon = QIcon()
-    icon.addFile("assets/icon.png")
-    icon.addFile("assets/icon.ico")
+    icon.addFile(str(get_path("assets/icon.png")))
+    icon.addFile(str(get_path("assets/icon.ico")))
 
     app.setWindowIcon(icon)
     window = MainWindow()
@@ -255,6 +252,21 @@ def main() -> None:
     exit_code = app.exec()
     window.stop()
     sys.exit(exit_code)
+
+
+def get_path(path: Union[Path, str]) -> Path:
+    """Gets the path to a given object, determining its location based on if the application is packed or in-dev.
+
+    Args:
+        path (Union[Path, str]): The path you wish to resolve
+
+    Returns:
+        Path: The resolved path, either in the temp dir or locally on disk.
+    """
+
+    bundle_dir = Path(sys._MEIPASS if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))).resolve()
+
+    return bundle_dir.joinpath(path).resolve()
 
 
 if __name__ == "__main__":

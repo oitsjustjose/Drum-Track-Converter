@@ -11,17 +11,6 @@ from eyed3.id3 import ID3_V2_4, Tag
 from tinytag import TinyTag
 from wavinfo import WavInfoReader
 
-SUPPORTED_EXTS = [".mp3", ".m4a", ".wav"]
-MODEL_CHOICES = {
-    "Hybrid Transformer Demucs (Fine-Tuned)": "htdemucs_ft",
-    "Hybrid Transformer Demucs": "htdemucs",
-    "Hybrid Transformer Demucs v3": "hdemucs_mmi",
-    "Model Trained with MusDB HQ": "mdx",
-    "Model Trained with MusDB HQ & Extra Training Data": "mdx_extra",
-    "Model Trained with MusDB HQ (Quantized)": "mdx_q",
-    "Model Trained with MusDB HQ (Extra Quantized)": "mdx_extra_q",
-}
-
 
 class MusicFile:
     def __init__(self, path: Path, model_name: str):
@@ -128,8 +117,6 @@ class MusicFile:
         """
         audio_file = eyed3.load(str(self.file_path))
         if not audio_file:
-            print(
-                f"Failed to load tag from file {self.file_path} -- returning empty tag"
-            )
+            print(f"Failed to load tag from file {self.file_path} -- returning empty tag")
             return Tag(version=ID3_V2_4)
         return audio_file.tag

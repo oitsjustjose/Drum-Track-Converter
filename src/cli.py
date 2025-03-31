@@ -7,8 +7,8 @@ from argparse import ArgumentParser, RawTextHelpFormatter
 
 from colorama import Fore
 
+from src.common import MODEL_CHOICES
 from src.messaging import CliOutput
-from src.music_file import MODEL_CHOICES
 from src.processor import FolderProcessor
 
 
@@ -21,11 +21,7 @@ def __get_parser() -> ArgumentParser:
 
     model_choices = "\n  • ".join(
         # Padding in the array so the first entry starts on a newline with bullet
-        [""]
-        + [
-            f"{Fore.GREEN}{MODEL_CHOICES[desc]}{Fore.RESET} - {desc}"
-            for desc in MODEL_CHOICES
-        ]
+        [""] + [f"{Fore.GREEN}{MODEL_CHOICES[desc]}{Fore.RESET} - {desc}" for desc in MODEL_CHOICES]
     )
 
     parser = ArgumentParser(
@@ -34,9 +30,7 @@ def __get_parser() -> ArgumentParser:
         formatter_class=RawTextHelpFormatter,
     )
 
-    parser.add_argument(
-        "input_dir", help="The directory to scan for files. Scans recursively."
-    )
+    parser.add_argument("input_dir", help="The directory to scan for files. Scans recursively.")
 
     parser.add_argument(
         "output_dir",

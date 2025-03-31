@@ -5,14 +5,15 @@
 import os
 import shutil
 import subprocess
-from pathlib import Path
 from argparse import Namespace as argset
+from pathlib import Path
 
 import eyed3
 from eyed3.id3 import ID3_V2_4, Tag
 
-from src.messaging import MessageInterface, NoPrintStatements
-from src.music_file import SUPPORTED_EXTS, MODEL_CHOICES, MusicFile
+from src.common import MODEL_CHOICES, SUPPORTED_EXTS
+from src.messaging import CliOutput, NoPrintStatements
+from src.music_file import MusicFile
 
 
 class FolderProcessor:
@@ -21,7 +22,7 @@ class FolderProcessor:
         input_dir: str,
         output_dir: str,
         model_name: str,
-        msg_interface: MessageInterface,
+        output: CliOutput,
         verbose: bool = False,
     ):
         """
@@ -29,25 +30,23 @@ class FolderProcessor:
             input_dir (str): The source directory to traverse and convert
             output_dir (str): The destination directory which will mirror the source, but with tracks that have no drums
             model_name (str): The name of the Demucs model to use for splitting tracks
-            msg_interface (MessageInterface): The handler for displaying output to the user
+            output (CliOutput): The handler for displaying output to the user
         """
         self.input_dir: str = input_dir
         self.output_dir: str = output_dir
-        self.msg_interface: MessageInterface = msg_interface
+        self.output: CliOutput = output
         self.model_name = model_name
         self.verbose: bool = verbose
 
     @classmethod
-    def from_args(self, args: argset, msg_interface: MessageInterface):
+    def from_args(self, args: argset, output: CliOutput):
         """Creates a FolderProcessor instance using an argparse argument set
 
         Args:
             args (argset): Arguments from the CLI
-            msg_interface (MessageInterface): The handler for displaying output to the user
+            output (CliOutput): The handler for displaying output to the user
         """
-        return FolderProcessor(
-            args.input_dir, args.output_dir, args.model, msg_interface, args.verbose
-        )
+        return FolderProcessor(args.input_dir, args.output_dir, args.model, output, args.verbose)
 
     def _is_ffmpeg_present(self) -> bool:
         """Determines if ffmpeg is installed and accessible
@@ -57,9 +56,7 @@ class FolderProcessor:
                 When returning false, no processing should be permitted.
         """
         try:
-            exit_code = subprocess.call(
-                ["ffmpeg"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
+            exit_code = subprocess.call(["ffmpeg"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return exit_code == 1
         except FileNotFoundError:
             return False
@@ -73,9 +70,7 @@ class FolderProcessor:
         """
 
         if not self._is_ffmpeg_present():
-            raise Exception(
-                "FFMpeg is not installed! Please install it from here: https://www.ffmpeg.org/download.html"
-            )
+            raise Exception("FFMpeg is not installed! Please install it from here: https://www.ffmpeg.org/download.html")
 
         src: Path = Path(self.input_dir)
         dest: Path = Path(self.output_dir)
@@ -88,16 +83,12 @@ class FolderProcessor:
             for file in files:
                 original_path = Path(root).joinpath(file)
                 if original_path.suffix not in SUPPORTED_EXTS:
-                    self.msg_interface.warning(
-                        f"File {original_path.name} has an unsupported extension and will be skipped!"
-                    )
+                    self.output.warning(f"File {original_path.name} has an unsupported extension and will be skipped!")
                     continue
                 # Create a "MusicFile" from the full path of the original file
                 original_file = MusicFile(original_path, self.model_name)
 
-                self.msg_interface.info(
-                    f"Splitting drum tracks from {original_path.name} using {list(MODEL_CHOICES.keys())[list(MODEL_CHOICES.values()).index(self.model_name)]}:"
-                )
+                self.output.info(f"Splitting drum tracks from {original_path.name} using {list(MODEL_CHOICES.keys())[list(MODEL_CHOICES.values()).index(self.model_name)]}:")
 
                 with NoPrintStatements(self.verbose):
                     no_drums_path = original_file.separate()
@@ -116,9 +107,7 @@ class FolderProcessor:
                 os.makedirs(file_output_root, exist_ok=True)
                 shutil.move(no_drums_path, file_dest)
 
-                self.msg_interface.info(
-                    f"Done processing {original_path.name} and relocated it to {file_dest.relative_to(cur_dir)}!"
-                )
+                self.output.info(f"Done processing {original_path.name} and relocated it to {file_dest.relative_to(cur_dir)}!")
 
         # Remove the model output since we don't need it anymore
         if os.path.exists(self.model_name):
@@ -136,9 +125,7 @@ class FolderProcessor:
             bool: True if the process succeeds, False if get_tag raises an exception
         """
         try:
-            self.msg_interface.info(
-                f"Copying Metadata from {original_file.file_path.name} to {no_drums_path.name}"
-            )
+            self.output.info(f"Copying Metadata from {original_file.file_path.name} to {no_drums_path.name}")
 
             original_tag: Tag = original_file.get_tag()
 
@@ -147,9 +134,7 @@ class FolderProcessor:
             no_drums_audiofile.tag.title = f"{original_tag.title} (No Drums)"
             no_drums_audiofile.tag.save(version=ID3_V2_4)
         except Exception:
-            self.msg_interface.warning(
-                f"Failed to get the tag for {no_drums_path.name} - skipping!"
-            )
+            self.output.warning(f"Failed to get the tag for {no_drums_path.name} - skipping!")
             no_drums_path.unlink()
             return False
         return True
