@@ -2,6 +2,7 @@
 @author: Jose Stovall | github.com/oitsjustjose | bsky||@oitsjustjose.com
 """
 
+import importlib
 import os
 import platform
 import subprocess
@@ -90,8 +91,6 @@ class MainWindow(QMainWindow):
         cli = get_path("dtc_cli.exe") if platform.system() == "Windows" else ""
         prefix = "start /wait" if platform.system() == "Windows" else ""
         command = f"{prefix} {cli} {self.input_dir} {self.output_dir} -m {self.model_name}"
-
-        print(f"{command=}")
 
         self.__child_proc = subprocess.Popen(command.split(" "), shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
         self.__child_proc.wait()
@@ -240,6 +239,13 @@ def main() -> None:
       When the app is closed, the exit code is stored for sys.exit() while
       in the meantime the off-thread processing (if any) is stopped.
     """
+    # Tell the PyInstaller GUI that we're done loading
+    if "_PYI_SPLASH_IPC" in os.environ and importlib.util.find_spec("pyi_splash"):
+        import pyi_splash
+
+        pyi_splash.update_text("Done Loading!")
+        pyi_splash.close()
+
     app = QApplication(sys.argv)
 
     icon = QIcon()

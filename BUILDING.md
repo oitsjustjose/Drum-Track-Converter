@@ -39,6 +39,7 @@ pyinstaller `
     --noconfirm `
     --console `
     --icon ".\assets\icon.ico" `
+    --splash ".\assets\splash.png" `
     --name "Drum Track Converter" `
     --add-data ".\src;src/" `
     --add-data=".\assets;assets/" `
