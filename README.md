@@ -8,6 +8,10 @@ I'm not entirely sure if this application _requires_ an Nvidia GPU or not, I act
 
 As `demucs` has a dependency on FFmpeg, so does this project. Installation is easy and lightweight. You can install FFMpeg for your operating system of choice from the [official site](https://ffmpeg.org/download.html).
 
+# ℹ️ Using Your Nvidia GPU ℹ️
+
+If you wish to use your Nvidia GPU, be sure to install the Cuda Toolkit version 11.8 from [here](https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_522.06_windows.exe) before proceeding.
+
 ## ℹ️ Additional Features
 
 ### 💽 Metadata Replication

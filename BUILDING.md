@@ -6,17 +6,18 @@
 pip install pyinstaller
 ```
 
-### Then build the application:
+### Next, build the CLI application:
+
+This is required for the GUI application -- you'll see as you use it
 
 ```powershell
 pyinstaller `
-    --noconfirm `
     --onefile `
-    --windowed `
+    --noconfirm `
+    --console `
     --icon ".\assets\icon.ico" `
-    --name "Drum Track Converter" `
+    --name "dtc_cli" `
     --add-data ".\src;src/" `
-    --add-data=".\assets\icon.ico;assets/icon.ico." `
     --add-data ".\.venv\Lib\site-packages\demucs\remote;demucs/remote/" `
     --hidden-import "eyed3" `
     --hidden-import "demucs" `
@@ -25,6 +26,23 @@ pyinstaller `
     --hidden-import "numpy" `
     --collect-submodules "demucs" `
     --collect-submodules "numpy" `
+    ".\src\cli.py"
+```
+
+### Finally, build the GUI application:
+
+On the TODO: dtc_cli.exe is hard-coded and that's gross. I don't want to have to configure multiple builds for each platform if possible..
+
+```powershell
+pyinstaller `
+    --onefile `
+    --noconfirm `
+    --console `
+    --icon ".\assets\icon.ico" `
+    --name "Drum Track Converter" `
+    --add-data ".\src;src/" `
+    --add-data=".\assets;assets/" `
+    --add-data ".\dist\dtc_cli.exe;." `
     ".\src\gui.py"
 ```
 
