@@ -38,8 +38,8 @@ class FolderProcessor:
         self.model_name = model_name
         self.verbose: bool = verbose
 
-    @classmethod
-    def from_args(self, args: argset, output: CliOutput):
+    @staticmethod
+    def from_args(args: argset, output: CliOutput):
         """Creates a FolderProcessor instance using an argparse argument set
 
         Args:
@@ -48,7 +48,8 @@ class FolderProcessor:
         """
         return FolderProcessor(args.input_dir, args.output_dir, args.model, output, args.verbose)
 
-    def _is_ffmpeg_present(self) -> bool:
+    @staticmethod
+    def is_ffmpeg_present() -> bool:
         """Determines if ffmpeg is installed and accessible
 
         Returns:
@@ -69,7 +70,7 @@ class FolderProcessor:
         Also ensures that metadata is copied from the old file to the new one to provide the best user experience in the end
         """
 
-        if not self._is_ffmpeg_present():
+        if not FolderProcessor.is_ffmpeg_present():
             raise Exception("FFMpeg is not installed! Please install it from here: https://www.ffmpeg.org/download.html")
 
         src: Path = Path(self.input_dir)
@@ -130,6 +131,9 @@ class FolderProcessor:
             original_tag: Tag = original_file.get_tag()
 
             no_drums_audiofile = eyed3.load(str(no_drums_path))
+            if not no_drums_audiofile:
+                raise Exception(f"Failed to load eyed3 tags from {str(no_drums_path)}")
+
             no_drums_audiofile.tag = original_tag
             no_drums_audiofile.tag.title = f"{original_tag.title} (No Drums)"
             no_drums_audiofile.tag.save(version=ID3_V2_4)
